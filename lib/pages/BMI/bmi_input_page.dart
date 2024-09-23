@@ -1,22 +1,63 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // For formatting dates
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'bmi_chart_page.dart'; // Import the chart page
 
 class BMICalculatorPage extends StatefulWidget {
   const BMICalculatorPage({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _BMICalculatorPageState createState() => _BMICalculatorPageState();
 }
 
 class _BMICalculatorPageState extends State<BMICalculatorPage> {
   final TextEditingController _heightController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
+  
   String _bmiResult = '';
+  
+  // Store BMI values with corresponding dates
+  List<Map<String, dynamic>> _bmiRecords = [];
 
-  // Method to calculate BMI and show dialog to save it to Firestore
+  @override
+  void initState() {
+    super.initState();
+    _fetchBMIHistory(); // Fetch stored BMI history on initialization
+  }
+
+  // Method to fetch BMI history from Firestore
+  Future<void> _fetchBMIHistory() async {
+    try {
+      String userId = FirebaseAuth.instance.currentUser!.uid;
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('bmiData')
+          .orderBy('date', descending: true)
+          .get();
+
+      // Populate _bmiRecords with the fetched data
+      List<Map<String, dynamic>> fetchedRecords = snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return {
+          'bmi': data['value'],
+          'date': DateTime.parse(data['date']),
+        };
+      }).toList();
+
+      setState(() {
+        _bmiRecords = fetchedRecords;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching BMI history: $e');
+      }
+    }
+  }
+
+  // Method to calculate BMI and store it with a timestamp
   void _calculateBMI() async {
     final double? height = double.tryParse(_heightController.text);
     final double? weight = double.tryParse(_weightController.text);
@@ -56,7 +97,8 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white, backgroundColor: Colors.blue, disabledForegroundColor: Colors.green.withOpacity(0.38), disabledBackgroundColor: Colors.green.withOpacity(0.12), // Hover color (for desktop/web)
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 elevation: 5,
               ),
@@ -85,6 +127,14 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
         'date': date,
         'value': bmi,
       });
+
+      // Add to local list and update UI after saving
+      setState(() {
+        _bmiRecords.insert(0, {
+          'bmi': bmi,
+          'date': DateTime.parse(date),
+        });
+      });
     } catch (e) {
       if (kDebugMode) {
         print('Error saving BMI data: $e');
@@ -98,6 +148,20 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
       appBar: AppBar(
         title: const Text('BMI Calculator'),
         backgroundColor: const Color.fromARGB(255, 173, 238, 227),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.show_chart),
+            onPressed: () {
+              // Navigate to the chart page, passing the BMI records
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BMIChartPage(bmiRecords: _bmiRecords),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -161,6 +225,25 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
                   color: Colors.deepPurple,
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // Show BMI history
+              if (_bmiRecords.isNotEmpty)
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: _bmiRecords.length,
+                    itemBuilder: (context, index) {
+                      final bmiEntry = _bmiRecords[index];
+                      final formattedDate =
+                          DateFormat('yyyy-MM-dd – kk:mm').format(bmiEntry['date']);
+
+                      return ListTile(
+                        title: Text('BMI: ${bmiEntry['bmi'].toStringAsFixed(2)}'),
+                        subtitle: Text('Date: $formattedDate'),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
