@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart' show AppBar, BuildContext, Color, Colors, Column, CrossAxisAlignment, EdgeInsets, ElevatedButton, FontWeight, InputDecoration, MainAxisAlignment, OutlineInputBorder, Padding, SafeArea, Scaffold, SizedBox, State, StatefulWidget, Text, TextAlign, TextEditingController, TextField, TextInputType, TextStyle, Widget;
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BMICalculatorPage extends StatefulWidget {
   const BMICalculatorPage({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _BMICalculatorPageState createState() => _BMICalculatorPageState();
 }
 
@@ -13,26 +14,77 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
   final TextEditingController _weightController = TextEditingController();
   String _bmiResult = '';
 
-  // Method to calculate BMI
-  void _calculateBMI() {
-    // Parse the height and weight values from the text fields
+  // Method to calculate BMI and show dialog to save it to Firestore
+  void _calculateBMI() async {
     final double? height = double.tryParse(_heightController.text);
     final double? weight = double.tryParse(_weightController.text);
 
-    // Check if the inputs are valid numbers
     if (height != null && weight != null && height > 0) {
-      // Perform the BMI calculation
       final double bmi = weight / (height * height);
 
-      // Update the result string with the calculated BMI
       setState(() {
-        _bmiResult = 'Your BMI is: ${bmi.toStringAsFixed(2)}'; // Show result with 2 decimal places
+        _bmiResult = 'Your BMI is: ${bmi.toStringAsFixed(2)}';
       });
+
+      // Show the save dialog after BMI calculation
+      _showSaveDialog(bmi);
     } else {
-      // Show error message if inputs are not valid
       setState(() {
         _bmiResult = 'Please enter valid numbers for height and weight';
       });
+    }
+  }
+
+  // Method to show dialog to save BMI
+  void _showSaveDialog(double bmi) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Save BMI'),
+          content: Text('Your BMI is ${bmi.toStringAsFixed(2)}. Do you want to save this data?'),
+          actions: <Widget>[
+            ElevatedButton(
+              onPressed: () {
+                // Save BMI data to Firestore
+                saveBMIData(FirebaseAuth.instance.currentUser!.uid, bmi, DateTime.now().toIso8601String());
+                Navigator.of(context).pop(); // Close dialog
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('BMI saved successfully!')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.blue, disabledForegroundColor: Colors.green.withOpacity(0.38), disabledBackgroundColor: Colors.green.withOpacity(0.12), // Hover color (for desktop/web)
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                elevation: 5,
+              ),
+              child: const Text('Save'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog without saving
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Function to save BMI data to Firestore
+  Future<void> saveBMIData(String userId, double bmi, String date) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('bmiData')
+          .add({
+        'date': date,
+        'value': bmi,
+      });
+    } catch (e) {
+      print('Error saving BMI data: $e');
     }
   }
 
