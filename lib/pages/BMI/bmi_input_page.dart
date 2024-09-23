@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ class BMICalculatorPage extends StatefulWidget {
   const BMICalculatorPage({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _BMICalculatorPageState createState() => _BMICalculatorPageState();
 }
 
@@ -84,7 +86,9 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
         'value': bmi,
       });
     } catch (e) {
-      print('Error saving BMI data: $e');
+      if (kDebugMode) {
+        print('Error saving BMI data: $e');
+      }
     }
   }
 
