@@ -42,6 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
               await FirebaseAuth.instance.signOut();
               if (mounted) {
                 Navigator.pushAndRemoveUntil(
+                  // ignore: use_build_context_synchronously
                   context,
                   MaterialPageRoute(builder: (context) => LoginPage(showRegisterPage: () {})),
                   (route) => route.isFirst,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:health/pages/BMI/BMI.dart'; // Make sure this import is correct
+import 'package:health/pages/BMI/bmi_input_page.dart'; // Make sure this import is correct
 
 class BMIScreen extends StatelessWidget {
   const BMIScreen({super.key});
