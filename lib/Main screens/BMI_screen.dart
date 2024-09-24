@@ -39,7 +39,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
       for (var i = 0; i < snapshot.docs.length; i++) {
         var doc = snapshot.docs[i];
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        var bmi = data['value'];
+        var bmi = double.parse(data['value'].toStringAsFixed(2)); // Limit to two decimals
         var date = DateTime.parse(data['date']);
 
         fetchedRecords.add({
@@ -66,15 +66,24 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
         title: const Text('BMI Tracker'),
         backgroundColor: const Color.fromARGB(255, 173, 238, 227),
         actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
+          TextButton(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const BMICalculatorPage()),
               );
+              if (result == true) {
+                _fetchBMIHistory(); // Refresh data when returning
+              }
             },
-            icon: const Icon(Icons.calculate),
-            tooltip: 'Go to BMI Calculator',
+            child: const Text(
+              'Calculator',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            style: TextButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 173, 238, 227),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
           ),
         ],
       ),
@@ -161,7 +170,21 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                       ? LineChart(
                           LineChartData(
                             gridData: const FlGridData(show: false),
-                            titlesData: const FlTitlesData(show: true),
+                            titlesData: FlTitlesData(
+                              show: true,
+                              topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false), // Hide top titles
+                              ),
+                              rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false), // Hide right titles
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: true),  // Keep bottom titles for date
+                              ),
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: true),  // Keep left titles for BMI values
+                              ),
+                            ),
                             borderData: FlBorderData(
                               show: true,
                               border: const Border(
@@ -172,10 +195,33 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                             lineBarsData: [
                               LineChartBarData(
                                 spots: _bmiSpots,
-                                isCurved: false, // Straight line
-                                barWidth: 3,
-                                color: Colors.blue,
-                                dotData: const FlDotData(show: false),
+                                isCurved: false, // Smooth lines for more appealing graph
+                                barWidth: 5,
+                                shadow: const Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.blueGrey,
+                                  offset: Offset(4, 4),
+                                ),
+                                gradient: LinearGradient(
+                                  colors:[
+                                  Colors.blue.withOpacity(0.7), // Gradient effect for a more appealing chart
+                                  Colors.lightBlueAccent.withOpacity(0.3),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                ),
+                                belowBarData: BarAreaData(
+                                  show: true,
+                                  gradient: LinearGradient(
+                                    colors:[
+                                    Colors.blue.withOpacity(0.1),  // Shaded area below the line
+                                    Colors.lightBlueAccent.withOpacity(0.05),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  ),
+                                ),
+                                dotData: FlDotData(show: true),  // Show dots for a 3D-like effect
                               ),
                             ],
                           ),
@@ -186,18 +232,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
 
               const SizedBox(height: 20),
 
-              // Section for BMI motivational message
-              if (_bmiRecords.isNotEmpty)
-                Text(
-                  'Your BMI is ${_bmiRecords.first['bmi'].toStringAsFixed(2)}. Keep it up!',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-
+              
               const SizedBox(height: 20),
             ],
           ),
