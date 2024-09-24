@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:health/pages/BMI/bmi_calculator_page.dart';
+import 'package:health/pages/Calculator/bmi_calculator_page.dart';
 
 class BMIChartAndHistoryPage extends StatefulWidget {
   const BMIChartAndHistoryPage({super.key});
