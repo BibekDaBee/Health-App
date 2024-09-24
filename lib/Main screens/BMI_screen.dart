@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:health/pages/BMI/bmi_input_page.dart'; // Correct import for BMIInputPage
-
+import 'package:health/pages/BMI/bmi_calculator_page.dart';
+import 'package:health/pages/BMI/bmi_chart_and_history_page.dart';
 class BMIScreen extends StatelessWidget {
   const BMIScreen({super.key});
 
@@ -18,7 +18,7 @@ class BMIScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const BMIInputPage(), // Navigate to BMIInputPage
+                  builder: (context) => const BMIChartAndHistoryPage(), // Navigate to BMIInputPage
                 ),
               );
             },
