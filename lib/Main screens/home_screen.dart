@@ -24,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // List of screens to display based on selected index
   final List<Widget> _screens = [
     const CalorieDataScreen(),
-    const BMIScreen(),
+    const BMIChartAndHistoryPage(),
     const DashboardWidget(), // Using DashboardWidget for Home
     const SleepScreen(),
     const WaterScreen(),

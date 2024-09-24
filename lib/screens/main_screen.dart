@@ -12,6 +12,7 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _MainScreenState createState() => _MainScreenState();
 }
 
@@ -21,7 +22,7 @@ class _MainScreenState extends State<MainScreen> {
   // List of screens to display based on selected index
   final List<Widget> _screens = [
     const CalorieDataScreen(), // Index 0
-    const BMIScreen(),         // Index 1
+    const BMIChartAndHistoryPage(),        // Index 1
     const DashboardWidget(),   // Index 2 - Default Home Page
     const SleepScreen(),       // Index 3
     const WaterScreen(),       // Index 4
