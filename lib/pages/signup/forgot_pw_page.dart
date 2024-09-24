@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:health/const/constant.dart'; // for kDebugMode
+import 'package:flutter/foundation.dart'; // For kDebugMode
+import 'package:health/const/constant.dart'; // For backgroundColor and secondaryColor
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -23,6 +23,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Future<void> passwordReset() async {
     final email = _emailController.text.trim();
 
+    // Simple email validation
     if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
       showDialog(
         context: context,
@@ -92,23 +93,21 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         backgroundColor: backgroundColor,
         elevation: 0,
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 25.0),
-            child: Text(
+      body: Padding(
+        padding: const EdgeInsets.all(25.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
               'Enter Your Email and we will send you a password reset link',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20),
             ),
-          ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 20),
 
-          // Email textfield
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25.0),
-            child: Container(
+            // Email textfield
+            Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border.all(
@@ -127,18 +126,27 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
+            const SizedBox(height: 20),
 
-          // Reset Password Button
-          _isLoading
-              ? const CircularProgressIndicator()
-              : MaterialButton(
-                  onPressed: _isLoading ? null : passwordReset,
-                  color: secondaryColor,
-                  child: const Text('Reset Password'),
-                ),
-        ],
+            // Reset Password Button
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ElevatedButton(
+                    onPressed: _isLoading ? null : passwordReset,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: secondaryColor,
+                      padding: const EdgeInsets.all(15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Reset Password',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+          ],
+        ),
       ),
     );
   }

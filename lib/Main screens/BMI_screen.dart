@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:health/pages/BMI/bmi_input_page.dart'; // Make sure this import is correct
+import 'package:health/pages/BMI/bmi_input_page.dart'; // Correct import for BMIInputPage
 
 class BMIScreen extends StatelessWidget {
   const BMIScreen({super.key});
@@ -14,15 +14,15 @@ class BMIScreen extends StatelessWidget {
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              // Navigate to BMICalculatorPage when button is pressed
+              // Navigate to BMIInputPage instead of BMICalculatorPage
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const BMICalculatorPage(),
+                  builder: (context) => const BMIInputPage(), // Navigate to BMIInputPage
                 ),
               );
             },
-            child: const Text('Go to BMI Calculator'),
+            child: const Text('Go to BMI History and Calculator'),
           ),
         ],
       ),

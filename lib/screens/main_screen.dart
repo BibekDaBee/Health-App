@@ -8,12 +8,10 @@ import 'package:health/widgets/bottom_nav_bar_widget.dart';
 import 'package:health/widgets/dashboard_widget.dart';
 import 'package:health/widgets/summary_widget.dart';
 
-
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _MainScreenState createState() => _MainScreenState();
 }
 
@@ -29,6 +27,7 @@ class _MainScreenState extends State<MainScreen> {
     const WaterScreen(),       // Index 4
   ];
 
+  // Handle bottom navigation tap
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -43,23 +42,26 @@ class _MainScreenState extends State<MainScreen> {
         : 250.0;
 
     return Scaffold(
+      // Drawer for large screens
+      drawer: isMobile ? null : const Drawer(
+        child: SummaryWidget(), // Always visible on large screens
+      ),
+
+      // EndDrawer for mobile screens
       endDrawer: isMobile
           ? SizedBox(
               width: drawerWidth,
               child: const SummaryWidget(),
             )
           : null,
+
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: _screens[_selectedIndex], // Display the selected screen
-              ),
-            ),
-          ],
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: _screens, // Maintain state of the selected screens
         ),
       ),
+
       bottomNavigationBar: BottomNavBarWidget(
         onItemSelected: _onItemTapped, // Handle navigation
         currentIndex: _selectedIndex,   // Pass current index
