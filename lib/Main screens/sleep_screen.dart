@@ -14,7 +14,7 @@ class SleepScreen extends StatefulWidget {
 
 class _SleepScreenState extends State<SleepScreen> {
   List<FlSpot> _sleepSpots = [];
-  List<String> _timeLabels = []; // Store time labels for x-axis
+  final List<String> _timeLabels = []; // Store time labels for x-axis
 
   // Function to transform Firestore snapshot data into chart spots
   List<FlSpot> _generateChartSpots(QuerySnapshot snapshot) {
@@ -178,7 +178,7 @@ class _SleepScreenState extends State<SleepScreen> {
                                             interval: 1,
                                           ),
                                         ),
-                                        leftTitles: AxisTitles(
+                                        leftTitles: const AxisTitles(
                                           sideTitles: SideTitles(
                                             showTitles: false, // Hide the y-axis labels
                                           ),
