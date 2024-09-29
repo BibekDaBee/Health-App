@@ -11,7 +11,7 @@ class SleepIntakePage extends StatefulWidget {
 
 class _SleepIntakePageState extends State<SleepIntakePage> {
   final TextEditingController _sleepHoursController = TextEditingController();
-  String _sleepResult = '';å
+  String _sleepResult = '';
 
   @override
   void dispose() {
