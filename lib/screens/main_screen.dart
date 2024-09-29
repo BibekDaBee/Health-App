@@ -24,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
     const CalorieDataScreen(), // Index 0
     const BMIChartAndHistoryPage(),        // Index 1
     const DashboardWidget(),   // Index 2 - Default Home Page
-    const SleepIntakePage(),       // Index 3
+    const SleepTrackerApp(),       // Index 3
     const WaterScreen(),       // Index 4
   ];
 
