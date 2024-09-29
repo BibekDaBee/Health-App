@@ -76,13 +76,13 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                 _fetchBMIHistory(); // Refresh data when returning
               }
             },
-            child: const Text(
-              'Calculator',
-              style: TextStyle(color: Colors.white, fontSize: 16),
-            ),
             style: TextButton.styleFrom(
               backgroundColor: const Color.fromARGB(255, 173, 238, 227),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text(
+              'Calculator',
+              style: TextStyle(color: Colors.white, fontSize: 16),
             ),
           ),
         ],
@@ -170,7 +170,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                       ? LineChart(
                           LineChartData(
                             gridData: const FlGridData(show: false),
-                            titlesData: FlTitlesData(
+                            titlesData: const FlTitlesData(
                               show: true,
                               topTitles: AxisTitles(
                                 sideTitles: SideTitles(showTitles: false), // Hide top titles
@@ -221,7 +221,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                                   end: Alignment.bottomCenter,
                                   ),
                                 ),
-                                dotData: FlDotData(show: true),  // Show dots for a 3D-like effect
+                                dotData: const FlDotData(show: true),  // Show dots for a 3D-like effect
                               ),
                             ],
                           ),

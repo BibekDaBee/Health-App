@@ -14,7 +14,7 @@ class WaterScreen extends StatefulWidget {
 
 class _WaterScreenState extends State<WaterScreen> {
   List<FlSpot> _waterSpots = [];
-  List<String> _timeLabels = []; // Store time labels for x-axis
+  final List<String> _timeLabels = []; // Store time labels for x-axis
 
   // Function to transform Firestore snapshot data into chart spots
   List<FlSpot> _generateChartSpots(QuerySnapshot snapshot) {
@@ -178,7 +178,7 @@ class _WaterScreenState extends State<WaterScreen> {
                                             interval: 1,
                                           ),
                                         ),
-                                        leftTitles: AxisTitles(
+                                        leftTitles: const AxisTitles(
                                           sideTitles: SideTitles(
                                             showTitles: false, // Hide the y-axis labels
                                           ),
