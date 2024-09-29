@@ -25,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const CalorieDataScreen(),
     const BMIChartAndHistoryPage(),
     const DashboardWidget(), // Using DashboardWidget for Home
-    const SleepIntakePage(),
+    const SleepTrackerApp(),
     const WaterScreen(),
   ];
 
