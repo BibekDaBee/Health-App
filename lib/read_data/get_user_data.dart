@@ -1,30 +1,50 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-class GetUserData {
-  // Method to get the document ID that matches the user's UID
-  static Future<String?> getDocId(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+// Class to hold user data
+class UserData {
+  final String firstName;
+  final String lastName;
+  final String age;
 
-      if (doc.exists) {
-        return doc.id;
-      } else {
-        return null;
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching document: $e');
-      }
-      return null;
-    }
+  UserData({
+    required this.firstName,
+    required this.lastName,
+    required this.age,
+  });
+
+  // Convert from Firestore document data to UserData
+  factory UserData.fromMap(Map<String, dynamic> data) {
+    // Use the correct field names from Firestore
+    String firstName = data['firstName'] ?? 'No first name available';  // Correct key
+    String lastName = data['lastName'] ?? 'No last name available';      // Correct key
+    String age = data['age']?.toString() ?? 'No age available';
+
+    return UserData(
+      firstName: firstName,
+      lastName: lastName,
+      age: age,
+    );
   }
 
-  // Method to fetch and format user profile data from the sub-collection
-  static Future<Map<String, String>> fetchUserData(String uid) async {
+  // Fallback UserData in case of errors or missing data
+  factory UserData.error() {
+    return UserData(
+      firstName: 'Error',
+      lastName: 'Error',
+      age: 'Error',
+    );
+  }
+
+  @override
+  String toString() {
+    return 'UserData(firstName: $firstName, lastName: $lastName, age: $age)';
+  }
+}
+
+class GetUserData {
+  // Method to fetch user profile data from Firestore
+  static Future<UserData> fetchUserData(String uid) async {
     try {
       final profileDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -36,32 +56,24 @@ class GetUserData {
       if (profileDoc.exists) {
         final data = profileDoc.data() as Map<String, dynamic>;
 
-        // Formatting data
-        String firstName = data['first name'] ?? 'No first name available';
-        String lastName = data['last name'] ?? 'No last name available';
-        String age = data['age']?.toString() ?? 'No age available';
+        // Debugging: Print fetched data to verify field names
+        if (kDebugMode) {
+          print("Fetched data: $data");
+        }
 
-        return {
-          'firstName': firstName,
-          'lastName': lastName,
-          'age': age,
-        };
+        return UserData.fromMap(data); // Create UserData from Firestore document
       } else {
-        return {
-          'firstName': 'No first name available',
-          'lastName': 'No last name available',
-          'age': 'No age available',
-        };
+        return UserData(
+          firstName: 'No first name available',
+          lastName: 'No last name available',
+          age: 'No age available',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching user data: $e');
       }
-      return {
-        'firstName': 'Error',
-        'lastName': 'Error',
-        'age': 'Error',
-      };
+      return UserData.error();
     }
   }
 }

@@ -51,13 +51,16 @@ class _RegisterPageState extends State<RegisterPage> {
           password: _passwordController.text.trim(),
         );
 
-        // Save user details to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        // Save user details to Firestore in a sub-collection
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid)
+            .collection('profile') // sub-collection 'profile'
+            .doc('profileData') // document 'profileData'
+            .set({
           'firstName': _firstNameController.text.trim(),
           'lastName': _lastNameController.text.trim(),
           'email': _emailController.text.trim(),
           'age': int.parse(_ageController.text.trim()),
-          'phone': _phoneController.text.trim(), // Save phone number if provided
+          'phone': _phoneController.text.trim(),
         });
 
         setState(() {
@@ -71,9 +74,12 @@ class _RegisterPageState extends State<RegisterPage> {
           _errorMessage = e.message ?? 'An error occurred. Please try again.';
         });
       } finally {
-        setState(() {
+        if(mounted){
+          setState(() {
           _isLoading = false;
+          
         });
+        }
       }
     }
   }

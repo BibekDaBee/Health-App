@@ -12,7 +12,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final user = FirebaseAuth.instance.currentUser!;
-  Map<String, String>? userData;
+  UserData? userData;
 
   @override
   void initState() {
@@ -38,17 +38,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  // ignore: use_build_context_synchronously
-                  context,
-                  MaterialPageRoute(builder: (context) => LoginPage(showRegisterPage: () {})),
-                  (route) => route.isFirst,
-                );
-              }
-            },
+            onPressed: () => _confirmSignOut(context),
           ),
         ],
       ),
@@ -56,41 +46,43 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Center(
           child: userData == null
               ? const CircularProgressIndicator()
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Profile Details',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 36,
-                        ),
+              : userData!.firstName == 'Error'
+                  ? const Text('Error fetching user data.')
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Profile Details',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 36,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Here are your details:',
+                            style: TextStyle(
+                              fontSize: 20,
+                              color: Colors.black54,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          buildDataRow(Icons.person, 'First Name:', userData!.firstName),
+                          const SizedBox(height: 10),
+                          buildDataRow(Icons.person_outline, 'Last Name:', userData!.lastName),
+                          const SizedBox(height: 10),
+                          buildDataRow(Icons.cake, 'Age:', userData!.age),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Here are your details:',
-                        style: TextStyle(
-                          fontSize: 20,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      buildDataRow(Icons.person, 'First Name:', userData!['firstName'] ?? 'No first name available'),
-                      const SizedBox(height: 10),
-                      buildDataRow(Icons.person_outline, 'Last Name:', userData!['lastName'] ?? 'No last name available'),
-                      const SizedBox(height: 10),
-                      buildDataRow(Icons.cake, 'Age:', userData!['age'] ?? 'No age available'),
-                    ],
-                  ),
-                ),
+                    ),
         ),
       ),
     );
   }
 
-  //create a formatted data row
+  // Create a formatted data row
   Widget buildDataRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -135,5 +127,36 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  // Confirm sign out
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut == true) {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => LoginPage(showRegisterPage: () {})),
+          (route) => route.isFirst,
+        );
+      }
+    }
   }
 }
