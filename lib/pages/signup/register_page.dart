@@ -38,45 +38,55 @@ class _RegisterPageState extends State<RegisterPage> {
 
   // Sign up function to create user and save details
   Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
+  if (_formKey.currentState!.validate()) {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
+    try {
+      // Create user with email and password
+      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      // Save user details to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'age': int.parse(_ageController.text.trim()),
+        'phone': _phoneController.text.trim(),
       });
 
-      try {
-        // Create user with email and password
-        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
-
-        // Save user details to Firestore
-        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-          'firstName': _firstNameController.text.trim(),
-          'lastName': _lastNameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'age': int.parse(_ageController.text.trim()),
-          'phone': _phoneController.text.trim(), // Save phone number if provided
-        });
-
+      if (mounted) {
         setState(() {
           _errorMessage = 'Registration successful!';
         });
+      }
 
-        // Clear form fields
+      // Clear form fields
+      if (mounted) {
         _formKey.currentState!.reset();
-      } on FirebaseAuthException catch (e) {
+      }
+
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
         setState(() {
           _errorMessage = e.message ?? 'An error occurred. Please try again.';
         });
-      } finally {
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
