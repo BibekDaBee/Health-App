@@ -13,18 +13,18 @@ class CalorieDataScreen extends StatefulWidget {
 }
 
 class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTickerProviderStateMixin {
-  List<Map<String, dynamic>> _calorieRecords = [];
-  List<FlSpot> _calorieSpots = [];
+  List<BarChartGroupData> _calorieBars = [];
+  final List<String> _dayLabels = []; // Store day labels for x-axis (e.g., Sunday, Monday)
   late TabController _tabController; // Tab controller for switching between tabs
 
   final double _dailyCalorieGoal = 2500; // Example goal of 2500 kcal per day
   double _totalCaloriesToday = 0; // Track total calorie intake for today
+  DateTime _selectedWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this); // Two tabs: Logs and Goal
-    _fetchCalorieHistory(); // Fetch calorie history
     _fetchTotalCaloriesToday(); // Fetch today's calorie intake
   }
 
@@ -32,43 +32,6 @@ class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTicker
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  // Fetch Calorie history from Firestore
-  Future<void> _fetchCalorieHistory() async {
-    try {
-      String userId = FirebaseAuth.instance.currentUser!.uid;
-      QuerySnapshot snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('calorieIntakeData')
-          .orderBy('date', descending: true)
-          .get();
-
-      List<Map<String, dynamic>> fetchedRecords = [];
-      List<FlSpot> chartSpots = [];
-
-      for (var i = 0; i < snapshot.docs.length; i++) {
-        var doc = snapshot.docs[i];
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        var calorie = double.parse(data['value'].toStringAsFixed(2)); // Limit to two decimals
-        var date = DateTime.parse(data['date']);
-
-        fetchedRecords.add({
-          'calorie': calorie,
-          'date': date,
-        });
-
-        chartSpots.add(FlSpot(i.toDouble(), calorie)); // Add Calorie data to chart
-      }
-
-      setState(() {
-        _calorieRecords = fetchedRecords;
-        _calorieSpots = chartSpots;
-      });
-    } catch (e) {
-      print('Error fetching calorie history: $e');
-    }
   }
 
   // Fetch total calorie intake for today from Firestore
@@ -102,6 +65,80 @@ class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTicker
     }
   }
 
+  // Function to transform Firestore snapshot data into bar chart data by day of the week
+  List<BarChartGroupData> _generateBarChartData(QuerySnapshot snapshot) {
+    List<BarChartGroupData> barData = [];
+    _dayLabels.clear(); // Clear existing day labels for the x-axis
+
+    // Create a map to store total calorie intake for each day of the week
+    Map<int, double> intakeByDay = {
+      for (int i = 1; i <= 7; i++) i: 0.0 // Initialize with zero for each day of the week
+    };
+
+    for (var doc in snapshot.docs) {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      var intakeCalories = data['value'];
+      var date = DateTime.parse(data['date']);
+
+      // Extract the weekday (Sunday=0, Monday=1, etc.)
+      int weekday = date.weekday;
+      String dayName = DateFormat('EEEE').format(date); // Get the day name (e.g., Sunday)
+
+      // Store the day labels for the x-axis (in order)
+      if (!_dayLabels.contains(dayName)) {
+        _dayLabels.add(dayName);
+      }
+
+      // Sum calorie intake by day of the week
+      intakeByDay[weekday] = (intakeByDay[weekday] ?? 0) + intakeCalories;
+    }
+
+    // Generate BarChartGroupData for each day of the week (x: day index, y: intake)
+    intakeByDay.forEach((weekday, totalIntake) {
+      barData.add(
+        BarChartGroupData(
+          x: weekday,
+          barRods: [
+            BarChartRodData(toY: totalIntake, color: Colors.orangeAccent)
+          ],
+        ),
+      );
+    });
+
+    return barData;
+  }
+
+  // Function to delete a calorie intake record from Firestore
+  Future<void> _deleteRecord(String documentId) async {
+    try {
+      String userId = FirebaseAuth.instance.currentUser!.uid;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('calorieIntakeData')
+          .doc(documentId)
+          .delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Record deleted successfully!')),
+      );
+      // Recalculate today's intake after deletion
+      _fetchTotalCaloriesToday();
+    } catch (e) {
+      print('Error deleting record: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete the record')),
+      );
+    }
+  }
+
+  void _changeWeek(bool isNext) {
+    setState(() {
+      _selectedWeekStart = isNext
+          ? _selectedWeekStart.add(const Duration(days: 7))
+          : _selectedWeekStart.subtract(const Duration(days: 7));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -109,28 +146,15 @@ class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTicker
         title: const Text('Calorie Tracker'),
         backgroundColor: const Color.fromARGB(255, 173, 238, 227),
         actions: [
-          // Button to navigate to Calorie Intake Page
-          TextButton(
-            onPressed: () async {
-              // Navigate to CalorieIntakePage and wait for result
-              final result = await Navigator.push(
+          IconButton(
+            onPressed: () {
+              Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const CalorieIntakePage(),
-                ),
+                MaterialPageRoute(builder: (context) => const CalorieIntakePage()),
               );
-
-              // Check if the result indicates a new intake was logged
-              if (result == true) {
-                // If a new intake was logged, refresh the data
-                _fetchCalorieHistory();
-                _fetchTotalCaloriesToday();
-              }
             },
-            child: const Text(
-              'Add Intake',
-              style: TextStyle(color: Colors.white),
-            ),
+            icon: const Icon(Icons.add),
+            tooltip: 'Go to Calorie Intake Log',
           ),
         ],
         bottom: TabBar(
@@ -163,7 +187,7 @@ class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTicker
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Your Calorie Records and Progress',
+              'Your Calorie Intake Records by Day of the Week',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -172,141 +196,164 @@ class _CalorieDataScreenState extends State<CalorieDataScreen> with SingleTicker
             ),
             const SizedBox(height: 20),
 
-            // Section for displaying the Calorie records
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.5),
-                      spreadRadius: 5,
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+            // Week navigation buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => _changeWeek(false),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Calorie Records',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    _calorieRecords.isNotEmpty
-                        ? Expanded(
-                            child: ListView.builder(
-                              itemCount: _calorieRecords.length,
-                              itemBuilder: (context, index) {
-                                final record = _calorieRecords[index];
-                                final formattedDate = DateFormat(
-                                        'yyyy-MM-dd – kk:mm')
-                                    .format(record['date']);
-                                return ListTile(
-                                  title: Text(
-                                      'Calories: ${record['calorie'].toStringAsFixed(2)} kcal'),
-                                  subtitle: Text('Date: $formattedDate'),
-                                );
+                Text(
+                  'Week of ${DateFormat('MMM dd').format(_selectedWeekStart)}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () => _changeWeek(true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // StreamBuilder to listen to Firestore data in real-time
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(FirebaseAuth.instance.currentUser!.uid)
+                    .collection('calorieIntakeData')
+                    .where('date',
+                        isGreaterThanOrEqualTo: _selectedWeekStart.toIso8601String(),
+                        isLessThanOrEqualTo: _selectedWeekStart
+                            .add(const Duration(days: 6))
+                            .toIso8601String())
+                    .orderBy('date', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Text('Something went wrong.');
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Text('No calorie intake records found.');
+                  }
+
+                  // Generating bar chart data from Firestore snapshot
+                  _calorieBars = _generateBarChartData(snapshot.data!);
+
+                  return Column(
+                    children: [
+                      // Display Calorie Intake Records with swipe to delete option
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: snapshot.data!.docs.length,
+                          itemBuilder: (context, index) {
+                            var document = snapshot.data!.docs[index];
+                            Map<String, dynamic> record = document.data() as Map<String, dynamic>;
+                            var intakeCalories = record['value'];
+                            var date = DateTime.parse(record['date']);
+                            String formattedDate = DateFormat('EEEE, yyyy-MM-dd').format(date);
+
+                            return Dismissible(
+                              key: Key(document.id),
+                              onDismissed: (direction) {
+                                _deleteRecord(document.id); // Delete the record on swipe
                               },
-                            ),
-                          )
-                        : const Text('No calorie records found.'),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Section for displaying the Calorie chart
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(255, 235, 248, 255),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.5),
-                      spreadRadius: 5,
-                      blurRadius: 7,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: _calorieSpots.isNotEmpty
-                    ? LineChart(
-                        LineChartData(
-                          gridData: const FlGridData(show: false),
-                          titlesData: const FlTitlesData(
-                            show: true,
-                            topTitles: AxisTitles(
-                              sideTitles:
-                                  SideTitles(showTitles: false), // Hide top titles
-                            ),
-                            rightTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                  showTitles: false), // Hide right titles
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                  showTitles: true), // Keep bottom titles for date
-                            ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                  showTitles: true), // Keep left titles for Calorie values
-                            ),
-                          ),
-                          borderData: FlBorderData(
-                            show: true,
-                            border: const Border(
-                              bottom: BorderSide(color: Colors.black),
-                              left: BorderSide(color: Colors.black),
-                            ),
-                          ),
-                          lineBarsData: [
-                            LineChartBarData(
-                              spots: _calorieSpots,
-                              isCurved: false, // Smooth lines for more appealing graph
-                              barWidth: 5,
-                              shadow: const Shadow(
-                                blurRadius: 10,
-                                color: Colors.blueGrey,
-                                offset: Offset(4, 4),
+                              background: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: const Icon(Icons.delete, color: Colors.white),
                               ),
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.orange.withOpacity(0.7), // Gradient effect for a more appealing chart
-                                  Colors.deepOrangeAccent.withOpacity(0.3),
-                                ],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+                              child: ListTile(
+                                title: Text(
+                                    'Calories: ${intakeCalories.toStringAsFixed(0)} kcal'),
+                                subtitle: Text('Date: $formattedDate'),
                               ),
-                              belowBarData: BarAreaData(
-                                show: true,
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.orange.withOpacity(0.1), // Shaded area below the line
-                                    Colors.deepOrangeAccent.withOpacity(0.05),
-                                  ],
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                ),
-                              ),
-                              dotData: const FlDotData(show: true), // Show dots for a 3D-like effect
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      )
-                    : const Center(child: Text('No chart data available.')),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Display Calorie Intake Bar Chart by Day
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(255, 235, 248, 255),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.5),
+                                spreadRadius: 5,
+                                blurRadius: 7,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: _calorieBars.isNotEmpty
+                              ? BarChart(
+                                  BarChartData(
+                                    barGroups: _calorieBars,
+                                    titlesData: FlTitlesData(
+                                      bottomTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          getTitlesWidget: (value, meta) {
+                                            int index = value.toInt();
+                                            if (index >= 1 && index <= 7) {
+                                              return Text(
+                                                DateFormat('E').format(
+                                                    _selectedWeekStart.add(Duration(days: index - 1))),
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 12,
+                                                ),
+                                              );
+                                            }
+                                            return const Text('');
+                                          },
+                                          interval: 1,
+                                        ),
+                                      ),
+                                      leftTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true, // Show y-axis labels for calories
+                                          interval: 500,
+                                          getTitlesWidget: (value, meta) {
+                                            return Text(
+                                              '${value.toInt()} kcal',
+                                              style: const TextStyle(
+                                                  color: Colors.black, fontSize: 12),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    borderData: FlBorderData(
+                                      show: true,
+                                      border: const Border(
+                                        bottom: BorderSide(color: Colors.black),
+                                        left: BorderSide(color: Colors.black),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : const Center(child: Text('No chart data available.')),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
-
-            const SizedBox(height: 20),
           ],
         ),
       ),
