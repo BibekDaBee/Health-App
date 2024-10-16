@@ -18,7 +18,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 2; // Default to 'Home'
+  final int _selectedIndex = 2; // Default to 'Home'
 
   // List of screens to display based on selected index
   final List<Widget> _screens = [
@@ -39,9 +39,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
-        actions: [
+        actions: const [
           // Add ProfileWidget with a sample profile image URL
-          const ProfileWidget(
+          ProfileWidget(
             imageUrl: 'https://example.com/profile-picture.jpg', // Replace with the actual URL
           ),
         ],

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -327,8 +326,8 @@ class SleepChart extends StatelessWidget {
 
             return LineChart(
               LineChartData(
-                gridData: FlGridData(show: true),
-                titlesData: FlTitlesData(
+                gridData: const FlGridData(show: true),
+                titlesData: const FlTitlesData(
                   bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true)),
                   leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true)),
                 ),

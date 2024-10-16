@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class WaterIntakePage extends StatefulWidget {
   const WaterIntakePage({super.key});
@@ -12,6 +13,8 @@ class WaterIntakePage extends StatefulWidget {
 class _WaterIntakePageState extends State<WaterIntakePage> {
   final TextEditingController _waterIntakeController = TextEditingController();
   String _waterIntakeResult = '';
+  DateTime? _selectedDate; // For storing the selected date
+  TimeOfDay? _selectedTime; // For storing the selected time
 
   @override
   void dispose() {
@@ -19,35 +22,78 @@ class _WaterIntakePageState extends State<WaterIntakePage> {
     super.dispose();
   }
 
-  void _addWaterIntake() async {
-    final double? waterIntake = double.tryParse(_waterIntakeController.text);
-
-    if (waterIntake != null && waterIntake > 0) {
+  // Function to select the date for water intake
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020), // Limit for earliest date
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
       setState(() {
-        _waterIntakeResult = 'You have logged: ${waterIntake.toStringAsFixed(2)} L of water intake';
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // Function to select time of water intake
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (picked != null && picked != _selectedTime) {
+      setState(() {
+        _selectedTime = picked;
+      });
+    }
+  }
+
+  void _addWaterIntake() async {
+    // Parse the entered value in milliliters
+    final double? waterIntakeInMilliliters = double.tryParse(_waterIntakeController.text);
+
+    if (waterIntakeInMilliliters != null && waterIntakeInMilliliters > 0 && _selectedDate != null && _selectedTime != null) {
+      // Convert milliliters to liters before saving
+      final double waterIntakeInLiters = waterIntakeInMilliliters / 1000;
+
+      setState(() {
+        _waterIntakeResult =
+            'You have logged: ${waterIntakeInMilliliters.toStringAsFixed(0)} mL of water intake on ${DateFormat('EEEE, MMM d').format(_selectedDate!)} at ${_selectedTime!.format(context)}';
       });
 
-      await _saveWaterIntakeData(waterIntake); // Save water intake data to Firestore
+      await _saveWaterIntakeData(waterIntakeInLiters); // Save water intake in liters to Firestore
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Water intake saved successfully! Stay hydrated!')),
       );
     } else {
       setState(() {
-        _waterIntakeResult = 'Please enter a valid number for water intake';
+        _waterIntakeResult = 'Please enter a valid number and select a date and time for water intake';
       });
     }
   }
 
-  Future<void> _saveWaterIntakeData(double waterIntake) async {
+  Future<void> _saveWaterIntakeData(double waterIntakeInLiters) async {
     try {
       String userId = FirebaseAuth.instance.currentUser!.uid;
+
+      // Combine the selected date and time into a single DateTime object
+      DateTime intakeDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('waterIntakeData')
           .add({
-        'value': waterIntake,
-        'date': DateTime.now().toIso8601String(),
+        'value': waterIntakeInLiters,  // Save the intake in liters
+        'date': intakeDateTime.toIso8601String(),  // Save the date and time as a single DateTime string
       });
     } catch (e) {
       print('Error saving water intake data: $e');
@@ -76,13 +122,51 @@ class _WaterIntakePageState extends State<WaterIntakePage> {
             ),
             const SizedBox(height: 20),
             
-            // Input field for water intake
+            // Input field for water intake in milliliters
             TextField(
               controller: _waterIntakeController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Water intake in liters (e.g., 2.5)',
+                labelText: 'Water intake in milliliters (e.g., 250)',
                 border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Date picker for selecting the day of intake
+            ElevatedButton(
+              onPressed: () => _selectDate(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 173, 238, 227),
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+              ),
+              child: Text(
+                _selectedDate == null
+                    ? 'Select Date of Intake'
+                    : 'Selected Date: ${DateFormat('EEEE, MMM d').format(_selectedDate!)}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Time picker for selecting water intake time
+            ElevatedButton(
+              onPressed: () => _selectTime(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 173, 238, 227),
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+              ),
+              child: Text(
+                _selectedTime == null
+                    ? 'Select Time of Intake'
+                    : 'Selected Time: ${_selectedTime!.format(context)}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.black,
+                ),
               ),
             ),
             const SizedBox(height: 20),
