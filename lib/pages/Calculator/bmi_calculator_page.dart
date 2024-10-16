@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class BMICalculatorPage extends StatefulWidget {
   const BMICalculatorPage({super.key});
@@ -15,8 +16,11 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
   String _bmiResult = '';
   String _bmiCategory = '';
   Color _bmiCategoryColor = Colors.black;
-
   String _selectedGender = 'Male'; // Default gender selection
+
+  // Variables to store selected date and time
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
 
   @override
   void dispose() {
@@ -25,26 +29,54 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
     super.dispose();
   }
 
+  // Function to select date
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // Function to select time
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null && picked != _selectedTime) {
+      setState(() {
+        _selectedTime = picked;
+      });
+    }
+  }
+
   // Calculate BMI and classify it based on the selected gender
   void _calculateBMI() async {
     final double? height = double.tryParse(_heightController.text);
     final double? weight = double.tryParse(_weightController.text);
 
-    if (height != null && weight != null && height > 0) {
+    if (height != null && weight != null && height > 0 && weight > 0) {
       final double bmi = weight / (height * height);
 
-      // Classify BMI based on the selected gender
+      // Classify BMI
       _classifyBMI(bmi);
 
       setState(() {
         _bmiResult = 'Your BMI is: ${bmi.toStringAsFixed(2)}';
       });
 
-      // After calculating, ask the user if they want to save the data
+      // Show a dialog to save the data
       _showSaveDialog(bmi);
     } else {
       setState(() {
-        _bmiResult = 'Please enter valid numbers for height and weight';
+        _bmiResult = 'Please enter valid height and weight';
         _bmiCategory = '';
       });
     }
@@ -54,6 +86,16 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
   Future<void> _saveBMIData(double bmi) async {
     try {
       String userId = FirebaseAuth.instance.currentUser!.uid;
+
+      // Combine the selected date and time into a DateTime object
+      final DateTime dateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
@@ -61,7 +103,7 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
           .add({
         'value': bmi,
         'gender': _selectedGender,
-        'date': DateTime.now().toIso8601String(),
+        'date': dateTime.toIso8601String(),
       });
     } catch (e) {
       print('Error saving BMI data: $e');
@@ -70,18 +112,20 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
 
   // Classify BMI based on standard categories
   void _classifyBMI(double bmi) {
-    if (bmi < 18.5) {
-      _bmiCategory = 'Underweight';
-      _bmiCategoryColor = Colors.blue;
-    } else if (bmi >= 18.5 && bmi < 24.9) {
-      _bmiCategory = 'Normal weight';
-      _bmiCategoryColor = Colors.green;
-    } else if (bmi >= 25 && bmi < 29.9) {
-      _bmiCategory = 'Overweight';
-      _bmiCategoryColor = Colors.orange;
-    } else {
-      _bmiCategory = 'Obese';
-      _bmiCategoryColor = Colors.red;
+    final bmiCategories = {
+      'Underweight': {'range': [0.0, 18.5], 'color': Colors.blue},
+      'Normal weight': {'range': [18.5, 24.9], 'color': Colors.green},
+      'Overweight': {'range': [25.0, 29.9], 'color': Colors.orange},
+      'Obese': {'range': [30.0, double.infinity], 'color': Colors.red},
+    };
+
+    for (var category in bmiCategories.entries) {
+      final range = category.value['range'] as List<double>;
+      if (bmi >= range[0] && bmi < range[1]) {
+        _bmiCategory = category.key;
+        _bmiCategoryColor = category.value['color'] as Color;
+        break;
+      }
     }
   }
 
@@ -178,7 +222,8 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
             // Input field for height
             TextField(
               controller: _heightController,
-              keyboardType: TextInputType.number,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Height in meters (e.g., 1.75)',
                 border: OutlineInputBorder(),
@@ -194,6 +239,24 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
                 labelText: 'Weight in kilograms (e.g., 70)',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 20),
+
+            // Date and Time Picker
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(DateFormat('yyyy-MM-dd').format(_selectedDate)),
+                  onPressed: () => _selectDate(context),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.access_time),
+                  label: Text(_selectedTime.format(context)),
+                  onPressed: () => _selectTime(context),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
 
@@ -240,35 +303,10 @@ class _BMICalculatorPageState extends State<BMICalculatorPage> {
               ),
             ),
 
-            // Additional health tips
-            if (_bmiCategory.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 10.0),
-                child: Text(
-                  _getBMIMotivationText(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
-  }
-
-  // Method to provide health tips based on BMI category
-  String _getBMIMotivationText() {
-    switch (_bmiCategory) {
-      case 'Underweight':
-        return 'You are underweight. It\'s important to maintain a healthy diet and consult a nutritionist if needed.';
-      case 'Normal weight':
-        return 'You have a normal weight. Keep up the good work with a balanced diet and regular exercise!';
-      case 'Overweight':
-        return 'You are overweight. Consider adjusting your diet and increasing physical activity.';
-      case 'Obese':
-        return 'You are obese. It\'s recommended to consult a healthcare provider for advice on managing your health.';
-      default:
-        return '';
-    }
   }
 }
