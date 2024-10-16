@@ -6,24 +6,31 @@ class UserData {
   final String firstName;
   final String lastName;
   final String age;
+  final String phone;  // Added phone field
+  final String email;  // Added email field
 
   UserData({
     required this.firstName,
     required this.lastName,
     required this.age,
+    required this.phone,  // New field
+    required this.email,  // New field
   });
 
   // Convert from Firestore document data to UserData
   factory UserData.fromMap(Map<String, dynamic> data) {
-    // Use the correct field names from Firestore
-    String firstName = data['firstName'] ?? 'No first name available';  // Correct key
-    String lastName = data['lastName'] ?? 'No last name available';      // Correct key
-    String age = data['age']?.toString() ?? 'No age available';
+    String firstName = data.containsKey('firstName') ? data['firstName'] : 'No first name available';
+    String lastName = data.containsKey('lastName') ? data['lastName'] : 'No last name available';
+    String age = data.containsKey('age') ? data['age']?.toString() ?? 'No age available' : 'No age available';
+    String phone = data.containsKey('phone') ? data['phone'] : 'No phone available';
+    String email = data.containsKey('email') ? data['email'] : 'No email available';
 
     return UserData(
       firstName: firstName,
       lastName: lastName,
       age: age,
+      phone: phone,  // Set phone
+      email: email,  // Set email
     );
   }
 
@@ -33,24 +40,27 @@ class UserData {
       firstName: 'Error',
       lastName: 'Error',
       age: 'Error',
+      phone: 'Error',
+      email: 'Error',
     );
   }
 
   @override
   String toString() {
-    return 'UserData(firstName: $firstName, lastName: $lastName, age: $age)';
+    return 'UserData(firstName: $firstName, lastName: $lastName, age: $age, phone: $phone, email: $email)';
   }
 }
 
 class GetUserData {
   // Method to fetch user profile data from Firestore
-  static Future<UserData> fetchUserData(String uid) async {
+  static Future<UserData> fetchUserData(String uid, {String collection = 'profile', String document = 'profileData'}) async {
     try {
+      // Fetch the document from Firestore
       final profileDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
-          .collection('profile')
-          .doc('profileData') // the specific profile document
+          .collection(collection) // Flexible collection name
+          .doc(document)           // Flexible document name
           .get();
 
       if (profileDoc.exists) {
@@ -67,13 +77,20 @@ class GetUserData {
           firstName: 'No first name available',
           lastName: 'No last name available',
           age: 'No age available',
+          phone: 'No phone available',
+          email: 'No email available',
         );
       }
+    } on FirebaseException catch (e) {
+      if (kDebugMode) {
+        print('Firebase error: $e');
+      }
+      return UserData.error(); // Specific error handling for Firebase exceptions
     } catch (e) {
       if (kDebugMode) {
-        print('Error fetching user data: $e');
+        print('Unknown error fetching user data: $e');
       }
-      return UserData.error();
+      return UserData.error(); // General error handling
     }
   }
 }

@@ -33,7 +33,15 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text('Signed In as: ${user.email!}'),
+        title: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.health_and_safety_outlined, 
+              size: 36, // Adjust the size of the icon
+            ),
+          ],
+        ),
         backgroundColor: const Color.fromARGB(255, 173, 238, 227),
         actions: [
           IconButton(
@@ -47,7 +55,17 @@ class _ProfilePageState extends State<ProfilePage> {
           child: userData == null
               ? const CircularProgressIndicator()
               : userData!.firstName == 'Error'
-                  ? const Text('Error fetching user data.')
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Error fetching user data.'),
+                        const SizedBox(height: 20),
+                        TextButton(
+                          onPressed: fetchUserData,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -69,11 +87,25 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          buildDataRow(Icons.person, 'First Name:', userData!.firstName),
+
+                          // Display first name
+                          buildDataRow(Icons.person, 'First Name', userData!.firstName),
                           const SizedBox(height: 10),
-                          buildDataRow(Icons.person_outline, 'Last Name:', userData!.lastName),
+
+                          // Display last name
+                          buildDataRow(Icons.person_outline, 'Last Name', userData!.lastName),
                           const SizedBox(height: 10),
-                          buildDataRow(Icons.cake, 'Age:', userData!.age),
+
+                          // Display age
+                          buildDataRow(Icons.cake, 'Age', userData!.age),
+                          const SizedBox(height: 10),
+
+                          // Display phone
+                          buildDataRow(Icons.phone, 'Phone', userData!.phone),
+                          const SizedBox(height: 10),
+
+                          // Display email
+                          buildDataRow(Icons.email, 'Email', userData!.email),
                         ],
                       ),
                     ),
@@ -84,48 +116,39 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Create a formatted data row
   Widget buildDataRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.deepPurple),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Row(
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.deepPurple[200]!),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, color: Colors.deepPurple),
+        const SizedBox(width: 8),
+        Text(
+          '$label:',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.deepPurple[200]!),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
