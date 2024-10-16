@@ -13,12 +13,13 @@ class WaterScreen extends StatefulWidget {
 }
 
 class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStateMixin {
-  List<FlSpot> _waterSpots = [];
+  List<BarChartGroupData> _waterBars = [];
   final List<String> _dayLabels = []; // Store day labels for x-axis (e.g., Sunday, Monday)
   late TabController _tabController; // Tab controller for switching between tabs
 
   final double _dailyGoal = 2000; // Example goal of 2000 mL or 2 liters of water per day
   double _totalIntakeToday = 0; // Track total water intake for today
+  DateTime _selectedWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
 
   @override
   void initState() {
@@ -64,24 +65,26 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
     }
   }
 
-  // Function to transform Firestore snapshot data into chart spots by day of the week
-  List<FlSpot> _generateChartSpots(QuerySnapshot snapshot) {
-    List<FlSpot> chartSpots = [];
+  // Function to transform Firestore snapshot data into bar chart data by day of the week
+  List<BarChartGroupData> _generateBarChartData(QuerySnapshot snapshot) {
+    List<BarChartGroupData> barData = [];
     _dayLabels.clear(); // Clear existing day labels for the x-axis
 
     // Create a map to store total water intake for each day of the week
-    Map<int, double> intakeByDay = {};
+    Map<int, double> intakeByDay = {
+      for (int i = 1; i <= 7; i++) i: 0.0 // Initialize with zero for each day of the week
+    };
 
     for (var doc in snapshot.docs) {
       Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
       var intakeInLiters = data['value'];
       var intakeInMilliliters = intakeInLiters * 1000; // Convert liters to milliliters
       var date = DateTime.parse(data['date']);
-      
+
       // Extract the weekday (Sunday=0, Monday=1, etc.)
       int weekday = date.weekday;
       String dayName = DateFormat('EEEE').format(date); // Get the day name (e.g., Sunday)
-      
+
       // Store the day labels for the x-axis (in order)
       if (!_dayLabels.contains(dayName)) {
         _dayLabels.add(dayName);
@@ -91,12 +94,19 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
       intakeByDay[weekday] = (intakeByDay[weekday] ?? 0) + intakeInMilliliters;
     }
 
-    // Generate FlSpot for each day of the week (x: day index, y: intake)
+    // Generate BarChartGroupData for each day of the week (x: day index, y: intake)
     intakeByDay.forEach((weekday, totalIntake) {
-      chartSpots.add(FlSpot(weekday.toDouble(), totalIntake));
+      barData.add(
+        BarChartGroupData(
+          x: weekday,
+          barRods: [
+            BarChartRodData(toY: totalIntake, color: Colors.blueAccent)
+          ],
+        ),
+      );
     });
 
-    return chartSpots;
+    return barData;
   }
 
   // Function to delete a water intake record from Firestore
@@ -120,6 +130,14 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
         const SnackBar(content: Text('Failed to delete the record')),
       );
     }
+  }
+
+  void _changeWeek(bool isNext) {
+    setState(() {
+      _selectedWeekStart = isNext
+          ? _selectedWeekStart.add(const Duration(days: 7))
+          : _selectedWeekStart.subtract(const Duration(days: 7));
+    });
   }
 
   @override
@@ -179,6 +197,26 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
             ),
             const SizedBox(height: 20),
 
+            // Week navigation buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => _changeWeek(false),
+                ),
+                Text(
+                  'Week of ${DateFormat('MMM dd').format(_selectedWeekStart)}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward),
+                  onPressed: () => _changeWeek(true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
             // StreamBuilder to listen to Firestore data in real-time
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -186,6 +224,11 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
                     .collection('users')
                     .doc(FirebaseAuth.instance.currentUser!.uid)
                     .collection('waterIntakeData')
+                    .where('date',
+                        isGreaterThanOrEqualTo: _selectedWeekStart.toIso8601String(),
+                        isLessThanOrEqualTo: _selectedWeekStart
+                            .add(const Duration(days: 6))
+                            .toIso8601String())
                     .orderBy('date', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -201,12 +244,12 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
                     return const Text('No water intake records found.');
                   }
 
-                  // Generating chart spots and data from Firestore snapshot
-                  _waterSpots = _generateChartSpots(snapshot.data!);
+                  // Generating bar chart data from Firestore snapshot
+                  _waterBars = _generateBarChartData(snapshot.data!);
 
                   return Column(
                     children: [
-                      // Display Water Intake Records with delete option
+                      // Display Water Intake Records with swipe to delete option
                       Expanded(
                         child: ListView.builder(
                           itemCount: snapshot.data!.docs.length,
@@ -217,16 +260,21 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
                             var date = DateTime.parse(record['date']);
                             String formattedDate = DateFormat('EEEE, yyyy-MM-dd').format(date);
 
-                            return ListTile(
-                              title: Text(
-                                  'Water Intake: ${intakeInMilliliters.toStringAsFixed(0)} mL'),
-                              subtitle: Text('Date: $formattedDate'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  _deleteRecord(document.id); // Delete the record on press
-                                },
-                                tooltip: 'Delete this record',
+                            return Dismissible(
+                              key: Key(document.id),
+                              onDismissed: (direction) {
+                                _deleteRecord(document.id); // Delete the record on swipe
+                              },
+                              background: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: const Icon(Icons.delete, color: Colors.white),
+                              ),
+                              child: ListTile(
+                                title: Text(
+                                    'Water Intake: ${intakeInMilliliters.toStringAsFixed(0)} mL'),
+                                subtitle: Text('Date: $formattedDate'),
                               ),
                             );
                           },
@@ -235,7 +283,7 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
 
                       const SizedBox(height: 20),
 
-                      // Display Water Intake Chart by Day
+                      // Display Water Intake Bar Chart by Day
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.all(16),
@@ -251,34 +299,20 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
                               ),
                             ],
                           ),
-                          child: _waterSpots.isNotEmpty
-                              ? LineChart(
-                                  LineChartData(
-                                    gridData: FlGridData(
-                                      show: true,
-                                      getDrawingHorizontalLine: (value) {
-                                        return FlLine(
-                                          color: Colors.grey.withOpacity(0.3),
-                                          strokeWidth: 1,
-                                        );
-                                      },
-                                      getDrawingVerticalLine: (value) {
-                                        return FlLine(
-                                          color: Colors.grey.withOpacity(0.3),
-                                          strokeWidth: 1,
-                                        );
-                                      },
-                                    ),
+                          child: _waterBars.isNotEmpty
+                              ? BarChart(
+                                  BarChartData(
+                                    barGroups: _waterBars,
                                     titlesData: FlTitlesData(
                                       bottomTitles: AxisTitles(
                                         sideTitles: SideTitles(
                                           showTitles: true,
                                           getTitlesWidget: (value, meta) {
-                                            // Show day names on the x-axis
                                             int index = value.toInt();
-                                            if (index >= 0 && index < _dayLabels.length) {
+                                            if (index >= 1 && index <= 7) {
                                               return Text(
-                                                _dayLabels[index],
+                                                DateFormat('E').format(
+                                                    _selectedWeekStart.add(Duration(days: index - 1))),
                                                 style: const TextStyle(
                                                   color: Colors.black,
                                                   fontSize: 12,
@@ -311,26 +345,6 @@ class _WaterScreenState extends State<WaterScreen> with SingleTickerProviderStat
                                         left: BorderSide(color: Colors.black),
                                       ),
                                     ),
-                                    lineBarsData: [
-                                      LineChartBarData(
-                                        spots: _waterSpots,
-                                        isCurved: true, // Smooth curve
-                                        barWidth: 3,
-                                        color: Colors.blueAccent,
-                                        belowBarData: BarAreaData(
-                                          show: true,
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              Colors.blueAccent.withOpacity(0.3),
-                                              Colors.blueAccent.withOpacity(0), // Fades to transparent
-                                            ],
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                          ),
-                                        ),
-                                        dotData: const FlDotData(show: true),
-                                      ),
-                                    ],
                                   ),
                                 )
                               : const Center(child: Text('No chart data available.')),
