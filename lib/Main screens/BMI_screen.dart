@@ -16,6 +16,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
   List<Map<String, dynamic>> _bmiRecords = [];
   List<FlSpot> _bmiSpots = [];
   bool _isLoading = false;
+  DateTime _selectedWeekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1)); // Start of the current week
 
   @override
   void initState() {
@@ -23,29 +24,34 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
     _fetchBMIHistory();
   }
 
-  // Fetch BMI history from Firestore with pagination and caching
-  Future<void> _fetchBMIHistory({bool forceUpdate = false}) async {
-    if (_bmiRecords.isNotEmpty && !forceUpdate) return; // Use cache if available and no force update
-
+  // Fetch BMI history for the selected week
+  Future<void> _fetchBMIHistory() async {
     setState(() {
       _isLoading = true;
+      _bmiRecords.clear();
+      _bmiSpots.clear();
     });
 
     try {
       String userId = FirebaseAuth.instance.currentUser!.uid;
+
+      // Fetch data only for the selected week
+      DateTime startOfWeek = _selectedWeekStart;
+      DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
+
       QuerySnapshot snapshot = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('bmiData')
+          .where('date', isGreaterThanOrEqualTo: startOfWeek.toIso8601String())
+          .where('date', isLessThanOrEqualTo: endOfWeek.toIso8601String())
           .orderBy('date', descending: true)
-          .limit(10) // Limit records for pagination
           .get();
 
       List<Map<String, dynamic>> fetchedRecords = [];
       List<FlSpot> chartSpots = [];
 
-      for (var i = 0; i < snapshot.docs.length; i++) {
-        var doc = snapshot.docs[i];
+      for (var doc in snapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         var bmi = double.parse(data['value'].toStringAsFixed(2)); // Limit to two decimals
         var date = DateTime.parse(data['date']);
@@ -56,15 +62,18 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
           'date': date,
         });
 
-        chartSpots.add(FlSpot(date.millisecondsSinceEpoch.toDouble(), bmi)); // Use timestamp for x-axis
+        chartSpots.add(FlSpot(date.weekday.toDouble(), bmi)); // Use weekday (1 = Monday, 7 = Sunday) for x-axis
       }
 
       setState(() {
-        _bmiRecords = fetchedRecords;
-        _bmiSpots = chartSpots;
+        _bmiRecords.addAll(fetchedRecords);
+        _bmiSpots.addAll(chartSpots);
       });
     } catch (e) {
       print('Error fetching BMI history: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to fetch BMI records. Please try again later.')),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -85,12 +94,44 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Record deleted successfully!')),
       );
-      _fetchBMIHistory(forceUpdate: true); // Refresh data after deletion
+      _fetchBMIHistory(); // Refresh data after deletion
     } catch (e) {
       print('Error deleting BMI record: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to delete the record')),
       );
+    }
+  }
+
+  // Navigate between weeks
+  void _changeWeek(bool isNext) {
+    setState(() {
+      _selectedWeekStart = isNext
+          ? _selectedWeekStart.add(const Duration(days: 7)) // Go to next week
+          : _selectedWeekStart.subtract(const Duration(days: 7)); // Go to previous week
+    });
+    _fetchBMIHistory();
+  }
+
+  // Get the day of the week label (Monday, Tuesday, etc.)
+  String _getDayLabel(double value) {
+    switch (value.toInt()) {
+      case 1:
+        return 'Mon';
+      case 2:
+        return 'Tue';
+      case 3:
+        return 'Wed';
+      case 4:
+        return 'Thu';
+      case 5:
+        return 'Fri';
+      case 6:
+        return 'Sat';
+      case 7:
+        return 'Sun';
+      default:
+        return '';
     }
   }
 
@@ -108,7 +149,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                 MaterialPageRoute(builder: (context) => const BMICalculatorPage()),
               );
               if (result == true) {
-                _fetchBMIHistory(forceUpdate: true); // Refresh data when returning
+                _fetchBMIHistory(); // Refresh data when returning
               }
             },
             style: TextButton.styleFrom(
@@ -138,6 +179,27 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                         fontSize: 24,
                       ),
                     ),
+                    const SizedBox(height: 20),
+
+                    // Week navigation buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => _changeWeek(false),
+                        ),
+                        Text(
+                          'Week of ${DateFormat('MMM dd').format(_selectedWeekStart)}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_forward),
+                          onPressed: () => _changeWeek(true),
+                        ),
+                      ],
+                    ),
+
                     const SizedBox(height: 20),
 
                     // Section for displaying the BMI records
@@ -170,7 +232,7 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                                       itemCount: _bmiRecords.length,
                                       itemBuilder: (context, index) {
                                         final record = _bmiRecords[index];
-                                        final formattedDate = DateFormat('yyyy-MM-dd – kk:mm')
+                                        final formattedDate = DateFormat('yyyy-MM-dd – HH:mm')
                                             .format(record['date']);
                                         return Dismissible(
                                           key: Key(record['id']),
@@ -225,13 +287,20 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         getTitlesWidget: (value, _) {
-                                          final DateTime date = DateTime.fromMillisecondsSinceEpoch(value.toInt());
-                                          return Text(DateFormat('MM-dd').format(date));
+                                          return Text(_getDayLabel(value)); // Show day label (Mon, Tue, etc.)
                                         },
                                       ),
                                     ),
                                     leftTitles: AxisTitles(
-                                      sideTitles: SideTitles(showTitles: true),
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        getTitlesWidget: (value, _) {
+                                          return Text(
+                                            value.toStringAsFixed(1),
+                                            style: const TextStyle(fontSize: 10),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                   borderData: FlBorderData(
@@ -244,17 +313,13 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                                   lineBarsData: [
                                     LineChartBarData(
                                       spots: _bmiSpots,
-                                      isCurved: false,
+                                      isCurved: true, // Smooth line
                                       barWidth: 5,
-                                      shadow: const Shadow(
-                                        blurRadius: 10,
-                                        color: Colors.blueGrey,
-                                        offset: Offset(4, 4),
-                                      ),
+                                      dotData: FlDotData(show: true),
                                       gradient: LinearGradient(
                                         colors: [
-                                          Colors.blue.withOpacity(0.7),
-                                          Colors.lightBlueAccent.withOpacity(0.3),
+                                          Colors.orange.withOpacity(0.7), // Match calorie screen gradient
+                                          Colors.deepOrangeAccent.withOpacity(0.3),
                                         ],
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
@@ -263,16 +328,19 @@ class _BMIChartAndHistoryPageState extends State<BMIChartAndHistoryPage> {
                                         show: true,
                                         gradient: LinearGradient(
                                           colors: [
-                                            Colors.blue.withOpacity(0.1),
-                                            Colors.lightBlueAccent.withOpacity(0.05),
+                                            Colors.orange.withOpacity(0.1),
+                                            Colors.deepOrangeAccent.withOpacity(0.05),
                                           ],
                                           begin: Alignment.topCenter,
                                           end: Alignment.bottomCenter,
                                         ),
                                       ),
-                                      dotData: const FlDotData(show: true), // Show dots for emphasis
                                     ),
                                   ],
+                                  minX: 1, // Monday
+                                  maxX: 7, // Sunday
+                                  minY: _bmiSpots.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 1,
+                                  maxY: _bmiSpots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 1,
                                 ),
                               )
                             : const Center(child: Text('No chart data available.')),
