@@ -6,7 +6,6 @@ import 'package:health/Main%20screens/water_screen.dart';
 import 'package:health/util/responsive.dart';
 import 'package:health/widgets/bottom_nav_bar_widget.dart';
 import 'package:health/widgets/dashboard_widget.dart';
-import 'package:health/widgets/summary_widget.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -43,16 +42,14 @@ class _MainScreenState extends State<MainScreen> {
         : 250.0;
 
     return Scaffold(
-      // Drawer for large screens
-      drawer: isMobile ? null : const Drawer(
-        child: SummaryWidget(), // Always visible on large screens
-      ),
+      // Drawer for large screens (removed SummaryWidget)
+      drawer: isMobile ? null : null,
 
-      // EndDrawer for mobile screens
+      // EndDrawer for mobile screens (removed SummaryWidget)
       endDrawer: isMobile
           ? SizedBox(
               width: drawerWidth,
-              child: const SummaryWidget(),
+              child: null, // Drawer content removed
             )
           : null,
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:health/Main%20screens/calorie_screen.dart';
 import 'package:health/util/responsive.dart';
 import 'package:health/widgets/dashboard_widget.dart';
-import 'package:health/widgets/summary_widget.dart';
 import 'package:health/widgets/profile_widget.dart'; // Import the ProfileWidget
 
 // Import your screens here
@@ -49,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       endDrawer: isMobile
           ? SizedBox(
               width: drawerWidth,
-              child: const SummaryWidget(),
+              child: null, // Removed the SummaryWidget from the drawer
             )
           : null,
       body: SafeArea(
