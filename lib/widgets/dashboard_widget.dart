@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:health/util/responsive.dart';
 import 'package:health/widgets/activity_details_card.dart';
-import 'package:health/widgets/bar_graph_widget.dart';
 import 'package:health/widgets/header_widget.dart';
 import 'package:health/widgets/line_chart_card.dart';
 class DashboardWidget extends StatelessWidget {
